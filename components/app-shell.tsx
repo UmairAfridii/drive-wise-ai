@@ -3,16 +3,13 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  Bell,
   Bot,
   Car,
   ChevronRight,
   Fuel,
-  Gauge,
   LayoutDashboard,
   LogOut,
   Menu,
-  Search,
   Settings,
   Sparkles,
   Wrench,
@@ -38,13 +35,9 @@ const navItems = [
 function Logo() {
   return (
     <Link href="/" className="flex items-center gap-3" aria-label="DriveWise AI home">
-      <span className="relative flex size-10 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-sky-500 via-blue-600 to-indigo-700 shadow-lg shadow-blue-500/25">
-  <div className="absolute inset-0 bg-white/10" />
-
-  <Gauge className="relative z-10 size-5 text-white" strokeWidth={2.6} />
-
-  <span className="absolute bottom-1 left-1/2 h-1 w-5 -translate-x-1/2 rounded-full bg-cyan-300/80 blur-[1px]" />
-</span>
+      <span className="flex size-10 items-center justify-center overflow-hidden rounded-xl shadow-lg shadow-blue-500/25">
+        <img src="/drivewise-logo.png.png" alt="" className="size-full object-contain" />
+      </span>
       <span className="flex flex-col">
         <span className="text-base font-semibold tracking-tight text-foreground">DriveWise AI</span>
         <span className="text-[11px] font-medium uppercase tracking-[0.28em] text-muted-foreground">Vehicle Intelligence</span>
@@ -124,7 +117,7 @@ function SidebarContent({
             <Sparkles className="size-4" aria-hidden="true" />
           </div>
           <p className="text-sm font-semibold text-foreground">Drive smarter with AI</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">3 proactive insights are ready for review.</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Smart vehicle guidance is available whenever you need it.</p>
           <Link
             href="/ai-mechanic"
             onClick={onNavigate}
@@ -154,9 +147,9 @@ function SidebarContent({
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
-            <p className="truncate text-xs text-muted-foreground">Pro workspace</p>
+            <p className="truncate text-xs text-muted-foreground">{user ? 'DriveWise workspace' : 'Sign in to save your data'}</p>
           </div>
-          <button
+          {user ? <button
             type="button"
             onClick={handleLogout}
             disabled={loggingOut}
@@ -165,11 +158,9 @@ function SidebarContent({
             title="Sign out"
           >
             <LogOut className="size-4" />
-          </button>
-          <span className="rounded-full border border-primary/25 bg-primary/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-primary">
-            Pro
-          </span>
+          </button> : <Link href="/login" onClick={onNavigate} className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-primary/30">Sign in</Link>}
         </div>
+        {!user && <Link href="/signup" onClick={onNavigate} className="px-2 text-center text-xs font-medium text-primary hover:text-accent">Create account</Link>}
       </div>
     </div>
   )
@@ -201,17 +192,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { user, loading, logout } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
   const onAuthPage = isAuthRoute(pathname)
 
-const protectedRoutes = ['/garage', '/maintenance', '/settings']
+const protectedRoutes = ['/garage', '/fuel', '/maintenance', '/settings']
 
 useEffect(() => {
   if (loading) return
 
-  const isProtected = protectedRoutes.some((route) =>
-    pathname.startsWith(route)
-  )
+  const isProtected = protectedRoutes.some((route) => pathname.startsWith(route))
 
   if (!user && isProtected) {
     router.replace('/login')
@@ -232,9 +220,7 @@ useEffect(() => {
     return <AuthLoadingScreen />
   }
 
-  const isProtected = protectedRoutes.some((route) =>
-  pathname.startsWith(route)
-)
+  const isProtected = protectedRoutes.some((route) => pathname.startsWith(route))
 
 if (!user && isProtected) {
   return <AuthLoadingScreen />
@@ -289,40 +275,11 @@ if (!user && isProtected) {
             </button>
             <div>
               <p className="text-sm font-semibold text-foreground sm:text-base">{getPageTitle(pathname)}</p>
-              <p className="hidden text-xs text-muted-foreground sm:block">Tuesday, July 26</p>
+              <p className="hidden text-xs text-muted-foreground sm:block">{new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {searchOpen ? (
-              <label className="relative hidden sm:block">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <span className="sr-only">Search workspace</span>
-                <input
-                  autoFocus
-                  className="h-9 w-56 rounded-xl border border-input bg-secondary/50 pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
-                  placeholder="Search workspace..."
-                />
-              </label>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setSearchOpen(true)}
-                className="hidden h-9 items-center gap-2 rounded-xl border border-border bg-secondary/40 px-3 text-xs text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground sm:flex"
-              >
-                <Search className="size-4" aria-hidden="true" />
-                Search
-                <kbd className="ml-4 rounded-md border border-border bg-background/70 px-1.5 py-0.5 font-mono text-[10px]">⌘ K</kbd>
-              </button>
-            )}
-            <button
-              type="button"
-              className="relative flex size-9 items-center justify-center rounded-xl border border-border bg-secondary/40 text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground"
-              aria-label="Notifications, 3 unread"
-            >
-              <Bell className="size-4" />
-              <span className="absolute right-2 top-2 size-1.5 rounded-full bg-accent ring-2 ring-background" />
-            </button>
             <Link
               href="/ai-mechanic"
               className="flex h-9 items-center gap-2 rounded-xl bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-[0_6px_24px_oklch(0.62_0.19_258/0.25)] transition-transform hover:-translate-y-0.5 sm:px-4"

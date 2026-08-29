@@ -7,7 +7,7 @@ const ai = new GoogleGenAI({
 
 export async function POST(req: Request) {
   try {
-    const { message } = await req.json();
+    const { message, vehicle, maintenance, fuel } = await req.json();
 
     if (!message) {
       return NextResponse.json(
@@ -15,6 +15,12 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    const context = JSON.stringify({
+      vehicle: vehicle && typeof vehicle === "object" ? vehicle : undefined,
+      maintenance: Array.isArray(maintenance) ? maintenance.slice(0, 5) : [],
+      fuel: Array.isArray(fuel) ? fuel.slice(0, 5) : [],
+    });
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
@@ -31,6 +37,9 @@ Give:
 
 Question:
 ${message}
+
+Available vehicle context (may be empty; never invent facts not present here):
+${context}
 `,
     });
 

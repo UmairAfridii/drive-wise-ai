@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
@@ -19,15 +20,15 @@ export interface Vehicle {
   name: string;
   make: string;
   model: string;
-  year: number;
+  year?: number | "Year not set";
   plate: string;
   fuelType: "Petrol" | "Diesel" | "Hybrid" | "Electric";
   mileage: number;
-  health: number;
-  efficiency: string;
-  status: "Excellent" | "Good" | "Needs Service" | "Attention";
-  color: string;
-  nextService: string;
+  health?: number;
+  efficiency?: string;
+  status?: "Excellent" | "Good" | "Needs Service" | "Attention" | "Not assessed";
+  color?: string;
+  nextService?: string;
 }
 
 const vehiclesCollection = collection(db, "vehicles");
@@ -41,10 +42,16 @@ export async function getVehicles(uid: string): Promise<Vehicle[]> {
 
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...(doc.data() as Omit<Vehicle, "id">),
-  }));
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() as Omit<Vehicle, "id"> & { year?: unknown };
+    const parsedYear = typeof data.year === "number" ? data.year : Number(data.year);
+
+    return {
+      id: doc.id,
+      ...data,
+      year: Number.isInteger(parsedYear) && parsedYear >= 1886 ? parsedYear : "Year not set",
+    };
+  });
 }
 
 export async function addVehicle(vehicle: Vehicle) {
@@ -54,16 +61,28 @@ export async function addVehicle(vehicle: Vehicle) {
   });
 }
 
+async function assertVehicleOwnership(uid: string, id: string) {
+  const snapshot = await getDoc(doc(db, "vehicles", id));
+
+  if (!snapshot.exists() || snapshot.data().uid !== uid) {
+    throw new Error("Vehicle not found.");
+  }
+}
+
 export async function updateVehicle(
+  uid: string,
   id: string,
   vehicle: Partial<Vehicle>
 ) {
+  await assertVehicleOwnership(uid, id);
   const ref = doc(db, "vehicles", id);
+  const { uid: _uid, id: _id, ...updates } = vehicle;
 
-  await updateDoc(ref, vehicle);
+  await updateDoc(ref, updates);
 }
 
-export async function deleteVehicle(id: string) {
+export async function deleteVehicle(uid: string, id: string) {
+  await assertVehicleOwnership(uid, id);
   const ref = doc(db, "vehicles", id);
 
   await deleteDoc(ref);

@@ -33,6 +33,8 @@ export default function LoginPage() {
     <AuthFormShell
       title="Welcome back"
       description="Sign in to your DriveWise workspace to manage vehicles, fuel, and maintenance."
+      useApprovedLogo
+      showBackToHome
       footer={
         <>
           Don&apos;t have an account? <AuthLink href="/signup">Create one</AuthLink>

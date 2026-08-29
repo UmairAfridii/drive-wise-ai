@@ -10,6 +10,7 @@ export type FuelAnalytics = {
   totalDistance: number
   totalLiters: number
   totalCost: number
+  measuredCost: number
   averageEfficiency: number | null
   costPerKm: number | null
 }
@@ -20,6 +21,7 @@ export function calculateFuelAnalytics(entries: FuelEntry[]): FuelAnalytics {
   let validFillUps = 0
   let totalDistance = 0
   let totalLiters = 0
+  let measuredCost = 0
 
   for (const entry of [...entries].sort((a, b) => a.date.localeCompare(b.date))) {
     const previous = previousByVehicle.get(entry.vehicleId)
@@ -31,6 +33,7 @@ export function calculateFuelAnalytics(entries: FuelEntry[]): FuelAnalytics {
       validFillUps += 1
       totalDistance += distance
       totalLiters += entry.liters
+      measuredCost += entry.cost
     }
     previousByVehicle.set(entry.vehicleId, entry)
   }
@@ -44,7 +47,8 @@ export function calculateFuelAnalytics(entries: FuelEntry[]): FuelAnalytics {
     totalDistance,
     totalLiters,
     totalCost,
+    measuredCost,
     averageEfficiency: totalLiters > 0 ? totalDistance / totalLiters : null,
-    costPerKm: totalDistance > 0 ? totalCost / totalDistance : null,
+    costPerKm: totalDistance > 0 ? measuredCost / totalDistance : null,
   }
 }

@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
@@ -56,17 +57,28 @@ export async function addFuelEntry(entry: NewFuelEntry) {
   });
 }
 
+async function assertFuelEntryOwnership(uid: string, id: string) {
+  const snapshot = await getDoc(doc(db, "fuel", id));
+
+  if (!snapshot.exists() || snapshot.data().uid !== uid) {
+    throw new Error("Fuel log not found.");
+  }
+}
+
 export async function updateFuelEntry(
+  uid: string,
   id: string,
   entry: Partial<FuelEntry>
 ) {
+  await assertFuelEntryOwnership(uid, id);
   const ref = doc(db, "fuel", id);
-  const { id: _id, ...updates } = entry;
+  const { id: _id, uid: _uid, ...updates } = entry;
 
   await updateDoc(ref, updates);
 }
 
-export async function deleteFuelEntry(id: string) {
+export async function deleteFuelEntry(uid: string, id: string) {
+  await assertFuelEntryOwnership(uid, id);
   const ref = doc(db, "fuel", id);
 
   await deleteDoc(ref);

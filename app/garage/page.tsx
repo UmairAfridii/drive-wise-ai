@@ -140,7 +140,7 @@ if (loading) {
             <div className="grid-texture relative flex h-44 items-center justify-center overflow-hidden border-b border-border bg-secondary/20">
               <div className="absolute left-4 top-4 flex items-center gap-2">
                 <StatusPill tone={vehicle.status === 'Excellent' ? 'success' : vehicle.status === 'Good' ? 'accent' : 'warning'}>
-                  {vehicle.status}
+                  {vehicle.status ?? 'Not assessed'}
                 </StatusPill>
               </div>
               <div ref={openMenuId === vehicle.id ? menuRef : undefined} className="absolute right-4 top-4">
@@ -179,10 +179,10 @@ if (loading) {
                 <div>
                   <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{vehicle.name}</p>
                   <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">{vehicle.make} {vehicle.model}</h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{vehicle.year} · {vehicle.color}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{vehicle.year ?? 'Year not set'}{vehicle.color ? ` · ${vehicle.color}` : ''}</p>
                 </div>
                 <div className="flex size-11 flex-col items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
-                  <span className="text-sm font-bold">{vehicle.health}</span>
+                  <span className="text-sm font-bold">{vehicle.health ?? '—'}</span>
                   <span className="text-[8px] uppercase">health</span>
                 </div>
               </div>
@@ -200,19 +200,18 @@ if (loading) {
                     {vehicle.fuelType === 'Electric' ? <BatteryCharging className="size-3.5" /> : <Fuel className="size-3.5" />}
                     <span className="text-[10px] uppercase tracking-wider">Efficiency</span>
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-foreground">{vehicle.efficiency}</p>
+                  <p className="mt-2 text-sm font-semibold text-foreground">{vehicle.efficiency || 'Not available'}</p>
                 </div>
               </div>
 
-              <div className="mt-5">
+              {typeof vehicle.health === 'number' && <div className="mt-5">
                 <ProgressBar value={vehicle.health} tone={vehicle.health > 85 ? 'success' : vehicle.health > 70 ? 'primary' : 'warning'} label="Vehicle health" />
-              </div>
+              </div>}
 
               <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <ShieldCheck className="size-4 text-primary" /> Next service: {vehicle.nextService}
+                  <ShieldCheck className="size-4 text-primary" /> Next service: {vehicle.nextService || 'Not scheduled'}
                 </div>
-                <button type="button" className="text-xs font-semibold text-primary hover:text-accent">Details</button>
               </div>
             </div>
           </article>
@@ -264,17 +263,20 @@ function AddVehicleDialog({
 
   const [make, setMake] = useState(vehicle?.make ?? "")
   const [model, setModel] = useState(vehicle?.model ?? "")
-  const [year, setYear] = useState(vehicle?.year ? String(vehicle.year) : "")
+  const [year, setYear] = useState(typeof vehicle?.year === 'number' ? String(vehicle.year) : "")
   const [plate, setPlate] = useState(vehicle?.plate ?? "")
 
   async function handleSave() {
     if (!user) return
 
+    const parsedYear = Number(year)
     if (
       !make.trim() ||
       !model.trim() ||
       !year.trim() ||
-      !plate.trim()
+      !plate.trim() ||
+      !Number.isInteger(parsedYear) ||
+      parsedYear < 1886
     ) {
       alert("Please fill all fields.")
       return
@@ -287,11 +289,11 @@ function AddVehicleDialog({
         if (!vehicle.id) {
           throw new Error("Vehicle ID is missing")
         }
-        await updateVehicle(vehicle.id, {
+        await updateVehicle(user.uid, vehicle.id, {
           name: `${make} ${model}`,
           make,
           model,
-          year: Number(year),
+          year: parsedYear,
           plate,
         })
       } else {
@@ -300,15 +302,11 @@ function AddVehicleDialog({
           name: `${make} ${model}`,
           make,
           model,
-          year: Number(year),
+          year: parsedYear,
           plate,
           fuelType: "Petrol",
           mileage: 0,
-          health: 100,
-          efficiency: "0 km/L",
-          status: "Excellent",
-          color: "White",
-          nextService: "Not Scheduled",
+          status: "Not assessed",
         })
       }
 
@@ -426,15 +424,16 @@ function DeleteVehicleDialog({
   onDeleted: () => void
   onError: (msg: string | null) => void
 }) {
+  const { user } = useAuth()
   const [deleting, setDeleting] = useState(false)
 
   async function handleDelete() {
-    if (!vehicle.id) return
+    if (!user || !vehicle.id) return
 
     try {
       setDeleting(true)
       onError(null)
-      await deleteVehicle(vehicle.id)
+      await deleteVehicle(user.uid, vehicle.id)
       onDeleted()
     } catch (error) {
       console.error(error)

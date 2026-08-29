@@ -24,6 +24,10 @@ export const metadata: Metadata = {
   },
   description:
     'An AI-powered vehicle intelligence dashboard for smarter maintenance, fuel tracking, and diagnostics.',
+  icons: {
+    icon: '/drivewise-logo.png.png',
+    apple: '/drivewise-logo.png.png',
+  },
   generator: 'v0.app',
 }
 

@@ -3,8 +3,8 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
-  orderBy,
   query,
   serverTimestamp,
   updateDoc,
@@ -33,11 +33,7 @@ type NewMaintenanceRecord = Omit<MaintenanceRecord, "id">;
 export async function getMaintenanceRecords(
   uid: string
 ): Promise<MaintenanceRecord[]> {
-  const q = query(
-    maintenanceCollection,
-    where("uid", "==", uid),
-    orderBy("createdAt", "desc")
-  );
+  const q = query(maintenanceCollection, where("uid", "==", uid));
 
   const snapshot = await getDocs(q);
 
@@ -56,17 +52,28 @@ export async function addMaintenanceRecord(
   });
 }
 
+async function assertMaintenanceRecordOwnership(uid: string, id: string) {
+  const snapshot = await getDoc(doc(db, "maintenance", id));
+
+  if (!snapshot.exists() || snapshot.data().uid !== uid) {
+    throw new Error("Maintenance record not found.");
+  }
+}
+
 export async function updateMaintenanceRecord(
+  uid: string,
   id: string,
   record: Partial<MaintenanceRecord>
 ) {
+  await assertMaintenanceRecordOwnership(uid, id);
   const ref = doc(db, "maintenance", id);
-  const { id: _id, ...updates } = record;
+  const { id: _id, uid: _uid, ...updates } = record;
 
   await updateDoc(ref, updates);
 }
 
-export async function deleteMaintenanceRecord(id: string) {
+export async function deleteMaintenanceRecord(uid: string, id: string) {
+  await assertMaintenanceRecordOwnership(uid, id);
   const ref = doc(db, "maintenance", id);
 
   await deleteDoc(ref);

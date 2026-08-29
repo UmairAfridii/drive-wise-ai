@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Gauge } from 'lucide-react'
+import { ArrowLeft, Gauge } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 type AuthFormShellProps = {
@@ -9,16 +9,18 @@ type AuthFormShellProps = {
   description: string
   children: ReactNode
   footer: ReactNode
+  useApprovedLogo?: boolean
+  showBackToHome?: boolean
 }
 
-export function AuthFormShell({ title, description, children, footer }: AuthFormShellProps) {
+export function AuthFormShell({ title, description, children, footer, useApprovedLogo = false, showBackToHome = false }: AuthFormShellProps) {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background p-4">
-      <div className="glass-strong grid-texture w-full max-w-md rounded-3xl p-6 sm:p-8">
+      <div className="glass-strong grid-texture relative w-full max-w-md rounded-3xl p-6 sm:p-8">
+        {showBackToHome && <Link href="/" className="absolute left-5 top-5 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"><ArrowLeft className="size-3.5" /> Back to Home</Link>}
         <div className="mb-8 flex flex-col items-center text-center">
           <span className="relative flex size-12 items-center justify-center overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-[0_0_28px_oklch(0.62_0.19_258/0.3)]">
-            <Gauge className="size-6" strokeWidth={2.25} aria-hidden="true" />
-            <span className="absolute inset-x-2 bottom-1 h-px bg-accent/70" />
+            {useApprovedLogo ? <img src="/drivewise-logo.png.png" alt="DriveWise AI" className="size-full object-contain" /> : <><Gauge className="size-6" strokeWidth={2.25} aria-hidden="true" /><span className="absolute inset-x-2 bottom-1 h-px bg-accent/70" /></>}
           </span>
           <h1 className="mt-5 text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>

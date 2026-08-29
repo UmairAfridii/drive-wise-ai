@@ -202,8 +202,40 @@
   animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes intro-logo {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes intro-copy {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.intro-logo {
+  animation: intro-logo 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.intro-copy {
+  animation: intro-copy 0.55s 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-rise {
+  .animate-rise,
+  .intro-logo,
+  .intro-copy {
     animation: none;
   }
   * {
