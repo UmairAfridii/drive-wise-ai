@@ -2,37 +2,35 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ArrowLeft,
   BatteryCharging,
   Car,
   Check,
+  ChevronRight,
   Fuel,
   Gauge,
   MoreHorizontal,
+  Palette,
   Pencil,
   Plus,
   Search,
-  ShieldCheck,
-  SlidersHorizontal,
   Sparkles,
   Trash2,
   X,
 } from 'lucide-react'
-import { PageHeading, ProgressBar, StatusPill } from '@/components/dashboard-ui'
+import { PageHeading } from '@/components/dashboard-ui'
 import { useAuth } from '@/components/providers/auth-provider'
 
 import { Vehicle, getVehicles, addVehicle, deleteVehicle, updateVehicle } from '@/lib/garage'
+import { VEHICLE_BRANDS, FUEL_TYPES, getProductionYears } from '@/lib/vehicle-data'
+import { BrandLogo } from '@/lib/vehicle-icons'
 
 export default function GaragePage() {
   const { user } = useAuth()
 
-const [vehicles, setVehicles] = useState<Vehicle[]>([])
-
-const [loading, setLoading] = useState(true)
-
-const [query, setQuery] = useState('')
-
-const [filter, setFilter] =
-  useState<'All' | 'Excellent' | 'Needs Service'>('All')
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState('')
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null)
@@ -60,9 +58,9 @@ const [filter, setFilter] =
     }
   }, [user])
 
-useEffect(() => {
-  void loadVehicles()
-}, [loadVehicles])
+  useEffect(() => {
+    void loadVehicles()
+  }, [loadVehicles])
 
   useEffect(() => {
     function closeMenu(event: MouseEvent) {
@@ -71,26 +69,27 @@ useEffect(() => {
     document.addEventListener('mousedown', closeMenu)
     return () => document.removeEventListener('mousedown', closeMenu)
   }, [])
+
   const filtered = useMemo(() => {
-    return vehicles.filter((v) => {
-      const matchesQuery = `${v.make} ${v.model} ${v.plate}`.toLowerCase().includes(query.toLowerCase())
-      const matchesFilter = filter === 'All' || (filter === 'Excellent' ? v.status === 'Excellent' : v.status === 'Needs Service')
-      return matchesQuery && matchesFilter
-    })
-  }, [vehicles, query, filter])
-if (loading) {
-  return (
-    <div className="flex items-center justify-center py-20">
-      <p className="text-muted-foreground">Loading vehicles...</p>
-    </div>
-  )
-}
+    return vehicles.filter((v) =>
+      `${v.make} ${v.model} ${v.plate}`.toLowerCase().includes(query.toLowerCase())
+    )
+  }, [vehicles, query])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-muted-foreground">Loading vehicles...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-8">
       <PageHeading
         eyebrow="Your fleet"
         title="Everything you drive, in one place"
-        description="Track health, efficiency, mileage, and service status across every vehicle in your garage."
+        description="Manage vehicles, track mileage, fuel efficiency, and details across your garage."
         actions={
           <button
             type="button"
@@ -113,20 +112,8 @@ if (loading) {
             className="h-10 w-full rounded-xl border border-input bg-background/40 pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
           />
         </label>
-        <div className="flex items-center gap-2 overflow-x-auto">
-          <SlidersHorizontal className="ml-1 size-4 shrink-0 text-muted-foreground" />
-          {(['All', 'Excellent', 'Needs Service'] as const).map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setFilter(item)}
-              className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
-                filter === item ? 'bg-primary text-primary-foreground' : 'bg-secondary/60 text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {item}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 px-2 text-xs text-muted-foreground">
+          <span>{vehicles.length} {vehicles.length === 1 ? 'vehicle' : 'vehicles'} registered</span>
         </div>
       </section>
 
@@ -138,11 +125,6 @@ if (loading) {
             style={{ animationDelay: `${index * 70}ms` }}
           >
             <div className="grid-texture relative flex h-44 items-center justify-center overflow-hidden border-b border-border bg-secondary/20">
-              <div className="absolute left-4 top-4 flex items-center gap-2">
-                <StatusPill tone={vehicle.status === 'Excellent' ? 'success' : vehicle.status === 'Good' ? 'accent' : 'warning'}>
-                  {vehicle.status ?? 'Not assessed'}
-                </StatusPill>
-              </div>
               <div ref={openMenuId === vehicle.id ? menuRef : undefined} className="absolute right-4 top-4">
                 <button
                   type="button"
@@ -167,8 +149,14 @@ if (loading) {
               </div>
               <div className="absolute bottom-4 left-1/2 h-5 w-2/3 -translate-x-1/2 rounded-full bg-primary/20 blur-xl" />
               <div className="relative flex flex-col items-center">
-                <Car className="size-20 text-primary/80 transition-transform duration-500 group-hover:scale-105" strokeWidth={1.25} />
-                <span className="mt-1 rounded-full border border-border bg-background/60 px-2.5 py-1 font-mono text-[10px] text-muted-foreground backdrop-blur-md">
+                <div className="flex size-20 items-center justify-center">
+                  <BrandLogo
+                    brand={vehicle.make}
+                    className="size-16 drop-shadow-md transition-transform duration-500 group-hover:scale-110"
+                    fallback={<Car className="size-16 text-muted-foreground transition-transform duration-500 group-hover:scale-105" strokeWidth={1.25} />}
+                  />
+                </div>
+                <span className="mt-2 rounded-full border border-border bg-background/60 px-2.5 py-1 font-mono text-[10px] text-muted-foreground backdrop-blur-md">
                   {vehicle.plate}
                 </span>
               </div>
@@ -176,15 +164,16 @@ if (loading) {
 
             <div className="p-5">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{vehicle.name}</p>
-                  <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">{vehicle.make} {vehicle.model}</h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{vehicle.year ?? 'Year not set'}{vehicle.color ? ` · ${vehicle.color}` : ''}</p>
+                  <h2 className="mt-1 truncate text-lg font-semibold tracking-tight text-foreground">{vehicle.make} {vehicle.model}</h2>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {vehicle.year ?? 'Year not set'}{vehicle.color ? ` · ${vehicle.color}` : ''}
+                  </p>
                 </div>
-                <div className="flex size-11 flex-col items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
-                  <span className="text-sm font-bold">{vehicle.health ?? '—'}</span>
-                  <span className="text-[8px] uppercase">health</span>
-                </div>
+                <span className="inline-flex shrink-0 items-center rounded-lg border border-border bg-secondary/40 px-2.5 py-1 text-xs font-medium text-foreground">
+                  {vehicle.fuelType}
+                </span>
               </div>
 
               <div className="mt-5 grid grid-cols-2 gap-3">
@@ -201,16 +190,6 @@ if (loading) {
                     <span className="text-[10px] uppercase tracking-wider">Efficiency</span>
                   </div>
                   <p className="mt-2 text-sm font-semibold text-foreground">{vehicle.efficiency || 'Not available'}</p>
-                </div>
-              </div>
-
-              {typeof vehicle.health === 'number' && <div className="mt-5">
-                <ProgressBar value={vehicle.health} tone={vehicle.health > 85 ? 'success' : vehicle.health > 70 ? 'primary' : 'warning'} label="Vehicle health" />
-              </div>}
-
-              <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <ShieldCheck className="size-4 text-primary" /> Next service: {vehicle.nextService || 'Not scheduled'}
                 </div>
               </div>
             </div>
@@ -240,7 +219,15 @@ if (loading) {
 
       {actionError && <p role="alert" className="rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">{actionError}</p>}
 
-      {dialogOpen && <AddVehicleDialog onClose={() => setDialogOpen(false)} onSaved={loadVehicles} />}
+      {dialogOpen && (
+        <AddVehicleDialog
+          onClose={() => setDialogOpen(false)}
+          onSaved={async () => {
+            setDialogOpen(false)
+            await loadVehicles()
+          }}
+        />
+      )}
       {editingVehicle && <AddVehicleDialog vehicle={editingVehicle} onClose={() => setEditingVehicle(null)} onSaved={async () => { setEditingVehicle(null); await loadVehicles() }} />}
       {deletingVehicle && <DeleteVehicleDialog vehicle={deletingVehicle} onClose={() => setDeletingVehicle(null)} onDeleted={async () => { setDeletingVehicle(null); await loadVehicles() }} onError={setActionError} />}
     </div>
@@ -256,157 +243,574 @@ function AddVehicleDialog({
   onClose: () => void
   onSaved: () => void
 }) {
+  // If editing, show the simpler edit form
+  if (vehicle) return <EditVehicleDialog vehicle={vehicle} onClose={onClose} onSaved={onSaved} />
+
+  return <AddVehicleWizard onClose={onClose} onSaved={onSaved} />
+}
+
+/* ───────── Edit dialog (preserves original edit UX) ───────── */
+
+function EditVehicleDialog({
+  vehicle,
+  onClose,
+  onSaved,
+}: {
+  vehicle: Vehicle
+  onClose: () => void
+  onSaved: () => void
+}) {
   const { user } = useAuth()
-
-  const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
+  const [done, setDone] = useState(false)
 
-  const [make, setMake] = useState(vehicle?.make ?? "")
-  const [model, setModel] = useState(vehicle?.model ?? "")
-  const [year, setYear] = useState(typeof vehicle?.year === 'number' ? String(vehicle.year) : "")
-  const [plate, setPlate] = useState(vehicle?.plate ?? "")
+  const [make, setMake] = useState(vehicle.make)
+  const [model, setModel] = useState(vehicle.model)
+  const [year, setYear] = useState(typeof vehicle.year === 'number' ? String(vehicle.year) : '')
+  const [plate, setPlate] = useState(vehicle.plate)
+  const [fuelType, setFuelType] = useState(vehicle.fuelType)
+  const [mileage, setMileage] = useState(String(vehicle.mileage))
+  const [color, setColor] = useState(vehicle.color ?? '')
 
   async function handleSave() {
-    if (!user) return
-
+    if (!user || !vehicle.id) return
     const parsedYear = Number(year)
-    if (
-      !make.trim() ||
-      !model.trim() ||
-      !year.trim() ||
-      !plate.trim() ||
-      !Number.isInteger(parsedYear) ||
-      parsedYear < 1886
-    ) {
-      alert("Please fill all fields.")
-      return
+    const parsedMileage = Number(mileage)
+    if (!make.trim() || !model.trim() || !year.trim() || !plate.trim() || !Number.isInteger(parsedYear) || parsedYear < 1886) {
+      alert('Please fill all required fields.'); return
     }
-
+    if (!Number.isFinite(parsedMileage) || parsedMileage < 0) {
+      alert('Please enter a valid mileage.'); return
+    }
     try {
       setSaving(true)
-
-      if (vehicle) {
-        if (!vehicle.id) {
-          throw new Error("Vehicle ID is missing")
-        }
-        await updateVehicle(user.uid, vehicle.id, {
-          name: `${make} ${model}`,
-          make,
-          model,
-          year: parsedYear,
-          plate,
-        })
-      } else {
-        await addVehicle({
-          uid: user.uid,
-          name: `${make} ${model}`,
-          make,
-          model,
-          year: parsedYear,
-          plate,
-          fuelType: "Petrol",
-          mileage: 0,
-          status: "Not assessed",
-        })
-      }
-
+      await updateVehicle(user.uid, vehicle.id, {
+        name: `${make} ${model}`,
+        make,
+        model,
+        year: parsedYear,
+        plate,
+        fuelType,
+        mileage: parsedMileage,
+        color: color.trim() || undefined,
+      })
       onSaved()
-      setStep(2)
+      setDone(true)
     } catch (error) {
       console.error(error)
-      alert("Failed to save vehicle.")
+      alert('Failed to save vehicle.')
     } finally {
       setSaving(false)
     }
   }
 
-
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="add-vehicle-title">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="edit-vehicle-title">
       <button type="button" className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={onClose} aria-label="Close dialog" />
       <div className="glass-strong relative w-full max-w-lg rounded-t-3xl p-6 shadow-2xl sm:rounded-3xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-primary/15 text-primary"><Car className="size-5" /></div>
-            <h2 id="add-vehicle-title" className="text-xl font-semibold text-foreground">
-              {vehicle ? "Edit vehicle" : "Add a vehicle"}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {vehicle ? "Update your vehicle information." : "Set up smart monitoring in under a minute."}
-            </p>
+            <h2 id="edit-vehicle-title" className="text-xl font-semibold text-foreground">Edit vehicle</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Update your vehicle information.</p>
           </div>
+          <button type="button" onClick={onClose} className="flex size-9 items-center justify-center rounded-xl bg-secondary text-muted-foreground hover:text-foreground" aria-label="Close"><X className="size-4" /></button>
+        </div>
+
+        {!done ? (
+          <div className="mt-6 flex flex-col gap-4">
+            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
+              Vehicle make
+              <input value={make} onChange={(e) => setMake(e.target.value)} className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. Toyota" />
+            </label>
+            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
+              Model and year
+              <div className="grid grid-cols-3 gap-3">
+                <input value={model} onChange={(e) => setModel(e.target.value)} className="col-span-2 h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50" placeholder="Corolla Altis" />
+                <input value={year} onChange={(e) => setYear(e.target.value)} className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50" placeholder="2024" inputMode="numeric" />
+              </div>
+            </label>
+            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
+              Fuel type
+              <select value={fuelType} onChange={(e) => setFuelType(e.target.value as Vehicle['fuelType'])} className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50">
+                {FUEL_TYPES.map((ft) => <option key={ft.value} value={ft.value}>{ft.label}</option>)}
+              </select>
+            </label>
+            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
+              Mileage (km)
+              <input value={mileage} onChange={(e) => setMileage(e.target.value)} className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50" placeholder="45000" inputMode="numeric" />
+            </label>
+            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
+              License plate
+              <input value={plate} onChange={(e) => setPlate(e.target.value)} className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50" placeholder="ABC-1234" />
+            </label>
+            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
+              Paint / color
+              <input value={color} onChange={(e) => setColor(e.target.value)} className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. Pearl White" />
+            </label>
+            <button type="button" onClick={handleSave} disabled={saving} className="mt-2 flex h-11 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50">
+              {saving ? 'Saving...' : 'Save changes'}
+              <Check className="size-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="mt-8 flex flex-col items-center py-6 text-center">
+            <div className="flex size-16 items-center justify-center rounded-full bg-success/10 text-success ring-1 ring-success/20"><Check className="size-7" /></div>
+            <h3 className="mt-5 text-lg font-semibold text-foreground">Vehicle updated</h3>
+            <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">Your changes have been saved successfully throughout your workspace.</p>
+            <button type="button" onClick={onClose} className="mt-6 h-11 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground">Done</button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ───────── Add Vehicle Wizard (8-step) ───────── */
+
+const WIZARD_STEPS = [
+  { key: 'brand', label: 'Brand' },
+  { key: 'model', label: 'Model' },
+  { key: 'year', label: 'Year' },
+  { key: 'fuel', label: 'Fuel' },
+  { key: 'mileage', label: 'Mileage' },
+  { key: 'plate', label: 'Plate' },
+  { key: 'color', label: 'Color' },
+  { key: 'review', label: 'Review' },
+] as const
+
+type FuelValue = Vehicle['fuelType']
+
+function AddVehicleWizard({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const { user } = useAuth()
+
+  const [step, setStep] = useState(0)
+  const [saving, setSaving] = useState(false)
+
+  // Wizard state
+  const [make, setMake] = useState('')
+  const [brandSearch, setBrandSearch] = useState('')
+  const [model, setModel] = useState('')
+  const [modelSearch, setModelSearch] = useState('')
+  const [year, setYear] = useState<number | null>(null)
+  const [fuelType, setFuelType] = useState<FuelValue | ''>('')
+  const [mileage, setMileage] = useState('')
+  const [plate, setPlate] = useState('')
+  const [color, setColor] = useState('')
+
+  const years = useMemo(() => getProductionYears(), [])
+
+  // Filtered brands
+  const filteredBrands = useMemo(() => {
+    const q = brandSearch.toLowerCase().trim()
+    if (!q) return VEHICLE_BRANDS
+    return VEHICLE_BRANDS.filter((b) => b.name.toLowerCase().includes(q))
+  }, [brandSearch])
+
+  // Models for selected brand
+  const selectedBrand = useMemo(() => VEHICLE_BRANDS.find((b) => b.name === make), [make])
+  const filteredModels = useMemo(() => {
+    const models = selectedBrand?.models ?? []
+    const q = modelSearch.toLowerCase().trim()
+    if (!q) return models
+    return models.filter((m) => m.toLowerCase().includes(q))
+  }, [selectedBrand, modelSearch])
+
+  // Validation per step
+  const canContinue = useMemo(() => {
+    switch (step) {
+      case 0: return make !== ''
+      case 1: return model !== ''
+      case 2: return year !== null
+      case 3: return fuelType !== ''
+      case 4: {
+        const n = Number(mileage)
+        return mileage.trim() !== '' && Number.isFinite(n) && n >= 0
+      }
+      case 5: return plate.trim() !== ''
+      case 6: return true // color is optional
+      case 7: return true // review
+      default: return false
+    }
+  }, [step, make, model, year, fuelType, mileage, plate])
+
+  function goNext() {
+    if (step < WIZARD_STEPS.length - 1) setStep(step + 1)
+  }
+
+  function goBack() {
+    if (step > 0) setStep(step - 1)
+  }
+
+  async function handleSave() {
+    if (!user || !make || !model || year === null || !fuelType || !plate.trim()) return
+
+    try {
+      setSaving(true)
+      await addVehicle({
+        uid: user.uid,
+        name: `${make} ${model}`,
+        make,
+        model,
+        year,
+        plate: plate.trim(),
+        fuelType,
+        mileage: Math.max(0, Math.round(Number(mileage) || 0)),
+        status: 'Not assessed',
+        color: color.trim() || undefined,
+      })
+      await onSaved()
+      onClose()
+    } catch (error) {
+      console.error(error)
+      alert('Failed to save vehicle. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Common input class
+  const inputCls = 'h-11 w-full rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/10'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="add-wizard-title">
+      <button type="button" className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={onClose} aria-label="Close dialog" />
+      <div className="glass-strong relative flex w-full max-w-lg sm:max-w-2xl lg:max-w-3xl flex-col rounded-t-3xl shadow-2xl sm:rounded-3xl" style={{ maxHeight: 'min(92dvh, 740px)' }}>
+
+        {/* ── Header ── */}
+        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+          {step > 0 ? (
+            <button type="button" onClick={goBack} className="flex size-9 items-center justify-center rounded-xl bg-secondary text-muted-foreground hover:text-foreground" aria-label="Back">
+              <ArrowLeft className="size-4" />
+            </button>
+          ) : (
+            <div className="size-9" />
+          )}
+          <h2 id="add-wizard-title" className="text-sm font-semibold text-foreground">
+            Step {step + 1} of {WIZARD_STEPS.length}
+          </h2>
           <button type="button" onClick={onClose} className="flex size-9 items-center justify-center rounded-xl bg-secondary text-muted-foreground hover:text-foreground" aria-label="Close">
             <X className="size-4" />
           </button>
         </div>
 
-        {step === 1 ? (
-          <div className="mt-6 flex flex-col gap-4">
-            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
-              Vehicle make
-              <input
-  value={make}
-  onChange={(e) => setMake(e.target.value)}
-  className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50"
-  placeholder="e.g. Toyota"
-/>
-            </label>
-            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
-              Model and year
-              <div className="grid grid-cols-3 gap-3">
-                <input
-  value={model}
-  onChange={(e) => setModel(e.target.value)}
-  className="col-span-2 h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50"
-  placeholder="Corolla Altis"
-/>
-                <input
-  value={year}
-  onChange={(e) => setYear(e.target.value)}
-  className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50"
-  placeholder="2024"
-  inputMode="numeric"
-/>
+        {/* ── Progress bar ── */}
+        <div className="flex gap-1 px-5 pt-3">
+          {WIZARD_STEPS.map((s, i) => (
+            <div key={s.key} className={`h-1 flex-1 rounded-full transition-colors ${i <= step ? 'bg-primary' : 'bg-border'}`} />
+          ))}
+        </div>
+
+        {/* ── Body ── */}
+        <div className="scroll-slim flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          {/* Step 0: Brand */}
+          {step === 0 && (
+            <div className="flex flex-col gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">What is your vehicle brand?</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Let us know your vehicle for accurate analysis.</p>
               </div>
-            </label>
-            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
-              License plate
-              <input
-  value={plate}
-  onChange={(e) => setPlate(e.target.value)}
-  className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50"
-  placeholder="ABC-1234"
-/>
-            </label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input value={brandSearch} onChange={(e) => setBrandSearch(e.target.value)} placeholder="Search brand..." className={`${inputCls} pl-9`} />
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {filteredBrands.map((brand) => {
+                  const isSelected = make === brand.name
+                  return (
+                    <button
+                      key={brand.name}
+                      type="button"
+                      onClick={() => {
+                        setMake(brand.name)
+                        if (make !== brand.name) {
+                          setModel('')
+                          setModelSearch('')
+                        }
+                        setStep(1)
+                      }}
+                      className={`group flex flex-col items-center justify-center gap-2.5 rounded-2xl border p-4 text-center transition-all duration-200 hover:-translate-y-0.5 ${
+                        isSelected
+                          ? 'border-primary bg-primary/10 shadow-lg shadow-primary/10 ring-1 ring-primary/40'
+                          : 'border-border bg-secondary/30 text-muted-foreground hover:border-primary/30 hover:bg-secondary/50 hover:text-foreground'
+                      }`}
+                    >
+                      <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-background/70 p-3 shadow-inner border border-border/40 transition-transform duration-200 group-hover:scale-105">
+                        <BrandLogo
+                          brand={brand.name}
+                          className="size-8 shrink-0 drop-shadow-sm"
+                          fallback={<span className="text-base font-bold text-foreground">{brand.name[0]}</span>}
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-semibold tracking-tight text-foreground">{brand.name}</span>
+                        {isSelected && <Check className="size-3.5 text-primary" />}
+                      </div>
+                    </button>
+                  )
+                })}
+                {filteredBrands.length === 0 && (
+                  <p className="col-span-full py-8 text-center text-xs text-muted-foreground">No brands match your search.</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 1: Model */}
+          {step === 1 && (
+            <div className="flex flex-col gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">What is your vehicle model?</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Select the model for your <span className="font-semibold text-foreground">{make}</span>.</p>
+              </div>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder="Search model..." className={`${inputCls} pl-9`} />
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {filteredModels.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => {
+                      setModel(m)
+                      setStep(2)
+                    }}
+                    className={`flex items-center justify-between rounded-xl border px-4 py-3.5 text-left text-sm font-medium transition-colors ${
+                      model === m
+                        ? 'border-primary bg-primary/10 text-foreground ring-1 ring-primary/30'
+                        : 'border-border bg-secondary/30 text-muted-foreground hover:border-primary/30 hover:bg-secondary/50 hover:text-foreground'
+                    }`}
+                  >
+                    <span>{m}</span>
+                    {model === m && <Check className="size-4 text-primary" />}
+                  </button>
+                ))}
+                {filteredModels.length === 0 && (
+                  <p className="col-span-full py-8 text-center text-xs text-muted-foreground">No models match your search.</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Year */}
+          {step === 2 && (
+            <div className="flex flex-col gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">What is your vehicle production year?</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Select the manufacturing year of your <span className="font-semibold text-foreground">{make} {model}</span>.</p>
+              </div>
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                {years.map((y) => (
+                  <button
+                    key={y}
+                    type="button"
+                    onClick={() => {
+                      setYear(y)
+                      setStep(3)
+                    }}
+                    className={`rounded-xl border py-3 text-center text-sm font-medium transition-colors ${
+                      year === y
+                        ? 'border-primary bg-primary/10 text-foreground font-semibold ring-1 ring-primary/30'
+                        : 'border-border bg-secondary/30 text-muted-foreground hover:border-primary/30 hover:bg-secondary/50 hover:text-foreground'
+                    }`}
+                  >
+                    {y}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Fuel type */}
+          {step === 3 && (
+            <div className="flex flex-col gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Select fuel type</h3>
+                <p className="mt-1 text-sm text-muted-foreground">This helps calculate fuel efficiency and cost estimates.</p>
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {FUEL_TYPES.map((ft) => (
+                  <button
+                    key={ft.value}
+                    type="button"
+                    onClick={() => {
+                      setFuelType(ft.value)
+                      setStep(4)
+                    }}
+                    className={`flex items-center justify-between rounded-xl border px-4 py-3.5 text-left text-sm font-medium transition-colors ${
+                      fuelType === ft.value
+                        ? 'border-primary bg-primary/10 text-foreground ring-1 ring-primary/30'
+                        : 'border-border bg-secondary/30 text-muted-foreground hover:border-primary/30 hover:bg-secondary/50 hover:text-foreground'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {ft.value === 'Electric' ? <BatteryCharging className="size-4" /> : <Fuel className="size-4" />}
+                      {ft.label}
+                    </div>
+                    {fuelType === ft.value && <Check className="size-4 text-primary" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+              {/* Step 4: Mileage */}
+              {step === 4 && (
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">What is your current mileage?</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">Enter the current odometer reading in kilometers.</p>
+                  </div>
+                  <div className="relative">
+                    <Gauge className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      value={mileage}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        if (v === '' || /^\d*$/.test(v)) setMileage(v)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && canContinue) goNext()
+                      }}
+                      placeholder="e.g. 45000"
+                      inputMode="numeric"
+                      className={`${inputCls} pl-9 pr-12`}
+                      autoFocus
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">km</span>
+                  </div>
+                  {mileage && (
+                    <p className="text-xs text-muted-foreground">{Number(mileage).toLocaleString()} km</p>
+                  )}
+                </div>
+              )}
+
+              {/* Step 5: License plate */}
+              {step === 5 && (
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">What is your license plate?</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">Enter your vehicle registration number.</p>
+                  </div>
+                  <input
+                    value={plate}
+                    onChange={(e) => setPlate(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && canContinue) goNext()
+                    }}
+                    placeholder="ABC-1234"
+                    className={inputCls}
+                    autoFocus
+                  />
+                </div>
+              )}
+
+              {/* Step 6: Color */}
+              {step === 6 && (
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">What is your vehicle&apos;s paint color?</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">Optional — helps identify your vehicle at a glance.</p>
+                  </div>
+                  <div className="relative">
+                    <Palette className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      value={color}
+                      onChange={(e) => setColor(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') goNext()
+                      }}
+                      placeholder="e.g. Pearl White"
+                      className={`${inputCls} pl-9`}
+                      autoFocus
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Step 7: Review */}
+              {step === 7 && (
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Review your vehicle</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">Make sure everything looks right before saving.</p>
+                  </div>
+                  <div className="flex flex-col gap-1 rounded-2xl border border-border bg-secondary/20 p-4">
+                    <ReviewRow label="Brand" value={make} onEdit={() => setStep(0)} />
+                    <ReviewRow label="Model" value={model} onEdit={() => setStep(1)} />
+                    <ReviewRow label="Production year" value={year !== null ? String(year) : ''} onEdit={() => setStep(2)} />
+                    <ReviewRow label="Fuel type" value={FUEL_TYPES.find((ft) => ft.value === fuelType)?.label ?? ''} onEdit={() => setStep(3)} />
+                    <ReviewRow label="Mileage" value={`${Number(mileage || 0).toLocaleString()} km`} onEdit={() => setStep(4)} />
+                    <ReviewRow label="License plate" value={plate} onEdit={() => setStep(5)} />
+                    <ReviewRow label="Paint / color" value={color || '—'} onEdit={() => setStep(6)} />
+                  </div>
+                </div>
+              )}
+        </div>
+
+        {/* ── Footer with Continue / Save ── */}
+        <div className="border-t border-border px-5 py-4">
+          {step < WIZARD_STEPS.length - 1 ? (
             <button
-  type="button"
-  onClick={handleSave}
-  disabled={saving}
-  className="mt-2 flex h-11 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50"
->
-  {saving ? "Saving..." : "Continue"}
-  <Sparkles className="size-4" />
-</button>
-          </div>
-        ) : (
-          <div className="mt-8 flex flex-col items-center py-6 text-center">
-            <div className="flex size-16 items-center justify-center rounded-full bg-success/10 text-success ring-1 ring-success/20"><Check className="size-7" /></div>
-            <h3 className="mt-5 text-lg font-semibold text-foreground">
-              {vehicle ? "Vehicle updated" : "Ready to connect"}
-            </h3>
-            <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">
-              {vehicle
-                ? "Your changes have been saved successfully throughout your workspace."
-                : "Your vehicle profile is ready and available throughout your workspace."}
-            </p>
-            <button
-  type="button"
-  onClick={onClose}
-  className="mt-6 h-11 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground"
->
-  Done
-</button>
-          </div>
+              type="button"
+              onClick={goNext}
+              disabled={!canContinue}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-50"
+            >
+              Continue
+              <ChevronRight className="size-4" />
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={goBack}
+                className="flex h-11 flex-1 items-center justify-center rounded-xl border border-border bg-secondary/40 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="flex h-11 flex-[2] items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save vehicle'}
+                <Sparkles className="size-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ReviewRow({
+  label,
+  value,
+  onEdit,
+}: {
+  label: string
+  value: string
+  onEdit?: () => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-border py-2.5 last:border-0">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="flex items-center gap-2">
+        <span className="max-w-36 truncate text-sm font-semibold text-foreground sm:max-w-56">{value}</span>
+        {onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10 transition-colors"
+            title={`Edit ${label}`}
+          >
+            <Pencil className="size-3" />
+            <span>Edit</span>
+          </button>
         )}
       </div>
     </div>

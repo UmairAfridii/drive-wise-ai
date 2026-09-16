@@ -22,7 +22,7 @@ export interface Vehicle {
   model: string;
   year?: number | "Year not set";
   plate: string;
-  fuelType: "Petrol" | "Diesel" | "Hybrid" | "Electric";
+  fuelType: "Petrol" | "Diesel" | "LPG" | "Hybrid" | "Electric";
   mileage: number;
   health?: number;
   efficiency?: string;
