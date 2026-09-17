@@ -47,6 +47,8 @@ export function SectionTitle({
   )
 }
 
+import { Card, CardContent } from "@/components/ui/card"
+
 export function StatCard({
   label,
   value,
@@ -65,30 +67,32 @@ export function StatCard({
   delay?: number
 }) {
   return (
-    <article
-      className="glass animate-rise group rounded-2xl p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/25 sm:p-5"
+    <Card
+      className="animate-rise transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-500/25"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-primary/12 text-primary ring-1 ring-primary/15">
-          <Icon className="size-5" aria-hidden="true" />
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20">
+            <Icon className="size-5" aria-hidden="true" />
+          </div>
+          {trend && (
+            <span
+              className={cn(
+                'flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold',
+                positive ? 'bg-emerald-400/10 text-emerald-400' : 'bg-rose-500/10 text-rose-500',
+              )}
+            >
+              {positive ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
+              {trend}
+            </span>
+          )}
         </div>
-        {trend && (
-          <span
-            className={cn(
-              'flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold',
-              positive ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive',
-            )}
-          >
-            {positive ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
-            {trend}
-          </span>
-        )}
-      </div>
-      <p className="mt-5 text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-      <p className="mt-1 text-[11px] text-muted-foreground/80">{detail}</p>
-    </article>
+        <p className="mt-5 text-xs font-medium text-slate-400">{label}</p>
+        <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-50">{value}</p>
+        <p className="mt-1 text-[11px] text-slate-500">{detail}</p>
+      </CardContent>
+    </Card>
   )
 }
 
