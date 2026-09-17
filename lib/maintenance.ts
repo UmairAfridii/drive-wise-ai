@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   updateDoc,
   where,
+  deleteField,
 } from "firebase/firestore";
 
 import { db } from "./firebase";
@@ -37,10 +38,12 @@ export async function getMaintenanceRecords(
 
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...(doc.data() as Omit<MaintenanceRecord, "id">),
-  }));
+  return snapshot.docs
+    .filter((doc) => doc.data().isUpcoming !== true)
+    .map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as Omit<MaintenanceRecord, "id">),
+    }));
 }
 
 export async function addMaintenanceRecord(
@@ -77,4 +80,85 @@ export async function deleteMaintenanceRecord(uid: string, id: string) {
   const ref = doc(db, "maintenance", id);
 
   await deleteDoc(ref);
+}
+
+export type ServicePriority = 'Low' | 'Medium' | 'High';
+
+export interface UpcomingServiceRecord {
+  id?: string;
+  uid: string;
+  vehicleId: string;
+  vehicleName: string;
+  service: string;
+  targetMileage?: number;
+  targetDate?: string;
+  priority: ServicePriority;
+  notes?: string;
+}
+
+export async function getUpcomingServices(
+  uid: string
+): Promise<UpcomingServiceRecord[]> {
+  // Querying the existing allowed 'maintenance' collection to avoid Firestore permission/index errors
+  const q = query(maintenanceCollection, where("uid", "==", uid));
+  const snapshot = await getDocs(q);
+  return snapshot.docs
+    .filter((doc) => doc.data().isUpcoming === true)
+    .map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as Omit<UpcomingServiceRecord, "id">),
+    }));
+}
+
+export async function addUpcomingService(
+  record: Omit<UpcomingServiceRecord, "id">
+) {
+  const cleanRecord = Object.fromEntries(
+    Object.entries(record).filter(([_, v]) => v !== undefined)
+  );
+
+  await addDoc(maintenanceCollection, {
+    ...cleanRecord,
+    isUpcoming: true,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateUpcomingService(
+  uid: string,
+  id: string,
+  record: Partial<UpcomingServiceRecord>
+) {
+  await assertMaintenanceRecordOwnership(uid, id);
+  const ref = doc(db, "maintenance", id);
+  const { id: _id, uid: _uid, ...updates } = record;
+
+  const cleanUpdates = Object.fromEntries(
+    Object.entries(updates).map(([k, v]) => [k, v === undefined ? deleteField() : v])
+  );
+
+  await updateDoc(ref, cleanUpdates);
+}
+
+export async function deleteUpcomingService(uid: string, id: string) {
+  await assertMaintenanceRecordOwnership(uid, id);
+  const ref = doc(db, "maintenance", id);
+  await deleteDoc(ref);
+}
+
+export async function convertUpcomingToCompleted(
+  uid: string,
+  id: string,
+  completedRecord: Omit<MaintenanceRecord, "id">
+) {
+  await assertMaintenanceRecordOwnership(uid, id);
+  const ref = doc(db, "maintenance", id);
+
+  await updateDoc(ref, {
+    ...completedRecord,
+    isUpcoming: deleteField(),
+    targetDate: deleteField(),
+    targetMileage: deleteField(),
+    priority: deleteField(),
+  });
 }

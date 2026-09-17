@@ -22,13 +22,18 @@ import { PageHeading } from '@/components/dashboard-ui'
 import { useAuth } from '@/components/providers/auth-provider'
 
 import { Vehicle, getVehicles, addVehicle, deleteVehicle, updateVehicle } from '@/lib/garage'
+import { getFuelEntries, type FuelEntry } from '@/lib/fuel'
+import { calculateVehicleFuelAnalytics } from '@/lib/fuel-analytics'
 import { VEHICLE_BRANDS, FUEL_TYPES, getProductionYears } from '@/lib/vehicle-data'
 import { BrandLogo } from '@/lib/vehicle-icons'
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 
 export default function GaragePage() {
   const { user } = useAuth()
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [fuelEntries, setFuelEntries] = useState<FuelEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
 
@@ -42,6 +47,7 @@ export default function GaragePage() {
   const loadVehicles = useCallback(async () => {
     if (!user) {
       setVehicles([])
+      setFuelEntries([])
       setLoading(false)
       return
     }
@@ -49,7 +55,12 @@ export default function GaragePage() {
     setLoading(true)
     setActionError(null)
     try {
-      setVehicles(await getVehicles(user.uid))
+      const [garageVehicles, userFuelEntries] = await Promise.all([
+        getVehicles(user.uid),
+        getFuelEntries(user.uid),
+      ])
+      setVehicles(garageVehicles)
+      setFuelEntries(userFuelEntries)
     } catch (error) {
       console.error('Failed to load vehicles:', error)
       setActionError('Unable to load your vehicles. Please try again.')
@@ -69,6 +80,18 @@ export default function GaragePage() {
     document.addEventListener('mousedown', closeMenu)
     return () => document.removeEventListener('mousedown', closeMenu)
   }, [])
+
+  const vehicleEfficiencies = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const vehicle of vehicles) {
+      if (!vehicle.id) continue
+      const analytics = calculateVehicleFuelAnalytics(fuelEntries, vehicle.id, vehicle.fuelType)
+      if (analytics && analytics.averageEfficiency !== null) {
+        map.set(vehicle.id, `${analytics.averageEfficiency.toFixed(1)} ${analytics.efficiencyUnit}`)
+      }
+    }
+    return map
+  }, [vehicles, fuelEntries])
 
   const filtered = useMemo(() => {
     return vehicles.filter((v) =>
@@ -101,35 +124,35 @@ export default function GaragePage() {
         }
       />
 
-      <section className="glass flex flex-col gap-3 rounded-2xl p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-3 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
         <label className="relative flex-1 sm:max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
           <span className="sr-only">Search vehicles</span>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search make, model, or plate..."
-            className="h-10 w-full rounded-xl border border-input bg-background/40 pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
+            className="h-10 w-full rounded-xl border border-slate-800 bg-slate-900/80 pl-9 pr-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 transition-colors"
           />
         </label>
-        <div className="flex items-center gap-2 px-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 px-2 text-xs text-slate-400">
           <span>{vehicles.length} {vehicles.length === 1 ? 'vehicle' : 'vehicles'} registered</span>
         </div>
-      </section>
+      </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {filtered.map((vehicle, index) => (
           <article
             key={vehicle.id}
-            className="glass animate-rise group overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:border-primary/25"
+            className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-slate-900/50 shadow-lg backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-500/50 hover:bg-slate-800/50 animate-rise"
             style={{ animationDelay: `${index * 70}ms` }}
           >
-            <div className="grid-texture relative flex h-44 items-center justify-center overflow-hidden border-b border-border bg-secondary/20">
-              <div ref={openMenuId === vehicle.id ? menuRef : undefined} className="absolute right-4 top-4">
+            <div className="relative flex h-48 items-center justify-center overflow-hidden border-b border-slate-800/50 bg-slate-900/30">
+              <div ref={openMenuId === vehicle.id ? menuRef : undefined} className="absolute right-4 top-4 z-10">
                 <button
                   type="button"
                   onClick={() => setOpenMenuId((current) => current === vehicle.id ? null : vehicle.id ?? null)}
-                  className="flex size-8 items-center justify-center rounded-lg border border-border bg-background/40 text-muted-foreground backdrop-blur-md transition-colors hover:text-foreground"
+                  className="flex size-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-900/80 text-slate-400 backdrop-blur-md transition-colors hover:text-slate-50 hover:bg-slate-800"
                   aria-label={`More options for ${vehicle.make} ${vehicle.model}`}
                   aria-expanded={openMenuId === vehicle.id}
                   aria-haspopup="menu"
@@ -137,26 +160,26 @@ export default function GaragePage() {
                   <MoreHorizontal className="size-4" />
                 </button>
                 {openMenuId === vehicle.id && (
-                  <div role="menu" className="glass-strong absolute right-0 top-10 z-20 w-40 rounded-xl p-1.5 shadow-xl">
-                    <button type="button" role="menuitem" onClick={() => { setEditingVehicle(vehicle); setOpenMenuId(null) }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground transition-colors hover:bg-secondary">
-                      <Pencil className="size-3.5 text-primary" /> Edit vehicle
+                  <div role="menu" className="absolute right-0 top-10 z-20 w-40 rounded-xl border border-slate-700 bg-slate-800 p-1.5 shadow-xl shadow-black/40">
+                    <button type="button" role="menuitem" onClick={() => { setEditingVehicle(vehicle); setOpenMenuId(null) }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-slate-100 transition-colors hover:bg-slate-700">
+                      <Pencil className="size-3.5 text-blue-400" /> Edit vehicle
                     </button>
-                    <button type="button" role="menuitem" onClick={() => { setDeletingVehicle(vehicle); setOpenMenuId(null) }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-destructive transition-colors hover:bg-destructive/10">
+                    <button type="button" role="menuitem" onClick={() => { setDeletingVehicle(vehicle); setOpenMenuId(null) }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-rose-500 transition-colors hover:bg-rose-500/10">
                       <Trash2 className="size-3.5" /> Delete vehicle
                     </button>
                   </div>
                 )}
               </div>
-              <div className="absolute bottom-4 left-1/2 h-5 w-2/3 -translate-x-1/2 rounded-full bg-primary/20 blur-xl" />
+              <div className="absolute bottom-4 left-1/2 h-8 w-3/4 -translate-x-1/2 rounded-full bg-blue-500/20 blur-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
               <div className="relative flex flex-col items-center">
-                <div className="flex size-20 items-center justify-center">
+                <div className="flex size-24 items-center justify-center">
                   <BrandLogo
                     brand={vehicle.make}
-                    className="size-16 drop-shadow-md transition-transform duration-500 group-hover:scale-110"
-                    fallback={<Car className="size-16 text-muted-foreground transition-transform duration-500 group-hover:scale-105" strokeWidth={1.25} />}
+                    className="size-20 drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition-transform duration-500 group-hover:scale-110"
+                    fallback={<Car className="size-20 text-slate-500 transition-transform duration-500 group-hover:scale-105" strokeWidth={1.25} />}
                   />
                 </div>
-                <span className="mt-2 rounded-full border border-border bg-background/60 px-2.5 py-1 font-mono text-[10px] text-muted-foreground backdrop-blur-md">
+                <span className="mt-3 rounded-md border border-slate-700 bg-slate-900/80 px-2.5 py-1 font-mono text-[10px] text-slate-400 backdrop-blur-md">
                   {vehicle.plate}
                 </span>
               </div>
@@ -165,31 +188,33 @@ export default function GaragePage() {
             <div className="p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{vehicle.name}</p>
-                  <h2 className="mt-1 truncate text-lg font-semibold tracking-tight text-foreground">{vehicle.make} {vehicle.model}</h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">{vehicle.name}</p>
+                  <h2 className="mt-1 truncate text-lg font-semibold tracking-tight text-slate-50">{vehicle.make} {vehicle.model}</h2>
+                  <p className="mt-0.5 text-xs text-slate-400">
                     {vehicle.year ?? 'Year not set'}{vehicle.color ? ` · ${vehicle.color}` : ''}
                   </p>
                 </div>
-                <span className="inline-flex shrink-0 items-center rounded-lg border border-border bg-secondary/40 px-2.5 py-1 text-xs font-medium text-foreground">
+                <span className="inline-flex shrink-0 items-center rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-300">
                   {vehicle.fuelType}
                 </span>
               </div>
 
               <div className="mt-5 grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-border bg-secondary/30 p-3">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Gauge className="size-3.5" />
+                <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <Gauge className="size-3.5 text-blue-500" />
                     <span className="text-[10px] uppercase tracking-wider">Mileage</span>
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-foreground">{vehicle.mileage.toLocaleString()} km</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-100">{vehicle.mileage.toLocaleString()} km</p>
                 </div>
-                <div className="rounded-xl border border-border bg-secondary/30 p-3">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    {vehicle.fuelType === 'Electric' ? <BatteryCharging className="size-3.5" /> : <Fuel className="size-3.5" />}
+                <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+                  <div className="flex items-center gap-2 text-slate-500">
+                    {vehicle.fuelType === 'Electric' ? <BatteryCharging className="size-3.5 text-cyan-400" /> : <Fuel className="size-3.5 text-cyan-400" />}
                     <span className="text-[10px] uppercase tracking-wider">Efficiency</span>
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-foreground">{vehicle.efficiency || 'Not available'}</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-100">
+                    {(vehicle.id && vehicleEfficiencies.get(vehicle.id)) || vehicle.efficiency || 'Not available'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -199,13 +224,13 @@ export default function GaragePage() {
         <button
           type="button"
           onClick={() => setDialogOpen(true)}
-          className="group flex min-h-96 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/20 p-8 text-center transition-all hover:border-primary/40 hover:bg-primary/5"
+          className="group flex min-h-[22rem] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/20 p-8 text-center transition-all hover:border-blue-500/40 hover:bg-slate-900/50"
         >
-          <span className="flex size-12 items-center justify-center rounded-2xl border border-border bg-secondary text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+          <span className="flex size-12 items-center justify-center rounded-2xl border border-slate-700 bg-slate-800 text-slate-400 transition-colors group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-500">
             <Plus className="size-5" />
           </span>
-          <span className="mt-4 text-sm font-semibold text-foreground">Add another vehicle</span>
-          <span className="mt-1 max-w-48 text-xs leading-relaxed text-muted-foreground">Connect a vehicle to unlock smart monitoring and AI insights.</span>
+          <span className="mt-4 text-sm font-semibold text-slate-100">Add another vehicle</span>
+          <span className="mt-1 max-w-48 text-xs leading-relaxed text-slate-400">Connect a vehicle to unlock smart monitoring and AI insights.</span>
         </button>
       </div>
 
@@ -305,64 +330,58 @@ function EditVehicleDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="edit-vehicle-title">
-      <button type="button" className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={onClose} aria-label="Close dialog" />
-      <div className="glass-strong relative w-full max-w-lg rounded-t-3xl p-6 shadow-2xl sm:rounded-3xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-primary/15 text-primary"><Car className="size-5" /></div>
-            <h2 id="edit-vehicle-title" className="text-xl font-semibold text-foreground">Edit vehicle</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Update your vehicle information.</p>
-          </div>
-          <button type="button" onClick={onClose} className="flex size-9 items-center justify-center rounded-xl bg-secondary text-muted-foreground hover:text-foreground" aria-label="Close"><X className="size-4" /></button>
-        </div>
-
+    <Dialog open={true} onClose={onClose} titleId="edit-vehicle-title">
         {!done ? (
-          <div className="mt-6 flex flex-col gap-4">
-            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
+          <div className="flex flex-col gap-4">
+            <DialogHeader onClose={onClose}>
+              <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-blue-500/15 text-blue-500"><Car className="size-5" /></div>
+              <DialogTitle id="edit-vehicle-title">Edit vehicle</DialogTitle>
+              <DialogDescription>Update your vehicle information.</DialogDescription>
+            </DialogHeader>
+
+            <label className="flex flex-col gap-2 text-xs font-medium text-slate-400">
               Vehicle make
-              <input value={make} onChange={(e) => setMake(e.target.value)} className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. Toyota" />
+              <Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="e.g. Toyota" />
             </label>
-            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
+            <label className="flex flex-col gap-2 text-xs font-medium text-slate-400">
               Model and year
               <div className="grid grid-cols-3 gap-3">
-                <input value={model} onChange={(e) => setModel(e.target.value)} className="col-span-2 h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50" placeholder="Corolla Altis" />
-                <input value={year} onChange={(e) => setYear(e.target.value)} className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50" placeholder="2024" inputMode="numeric" />
+                <Input value={model} onChange={(e) => setModel(e.target.value)} className="col-span-2" placeholder="Corolla Altis" />
+                <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="2024" inputMode="numeric" />
               </div>
             </label>
-            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
+            <label className="flex flex-col gap-2 text-xs font-medium text-slate-400">
               Fuel type
-              <select value={fuelType} onChange={(e) => setFuelType(e.target.value as Vehicle['fuelType'])} className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50">
+              <select value={fuelType} onChange={(e) => setFuelType(e.target.value as Vehicle['fuelType'])} className="h-11 rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50">
                 {FUEL_TYPES.map((ft) => <option key={ft.value} value={ft.value}>{ft.label}</option>)}
               </select>
             </label>
-            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
+            <label className="flex flex-col gap-2 text-xs font-medium text-slate-400">
               Mileage (km)
-              <input value={mileage} onChange={(e) => setMileage(e.target.value)} className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50" placeholder="45000" inputMode="numeric" />
+              <Input value={mileage} onChange={(e) => setMileage(e.target.value)} placeholder="45000" inputMode="numeric" />
             </label>
-            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
+            <label className="flex flex-col gap-2 text-xs font-medium text-slate-400">
               License plate
-              <input value={plate} onChange={(e) => setPlate(e.target.value)} className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50" placeholder="ABC-1234" />
+              <Input value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="ABC-1234" />
             </label>
-            <label className="flex flex-col gap-2 text-xs font-medium text-muted-foreground">
+            <label className="flex flex-col gap-2 text-xs font-medium text-slate-400">
               Paint / color
-              <input value={color} onChange={(e) => setColor(e.target.value)} className="h-11 rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none focus:border-primary/50" placeholder="e.g. Pearl White" />
+              <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="e.g. Pearl White" />
             </label>
-            <button type="button" onClick={handleSave} disabled={saving} className="mt-2 flex h-11 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50">
+            <button type="button" onClick={handleSave} disabled={saving} className="mt-2 flex h-11 items-center justify-center gap-2 rounded-full bg-blue-600 text-sm font-semibold text-white shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:bg-blue-500 transition-all disabled:opacity-50">
               {saving ? 'Saving...' : 'Save changes'}
               <Check className="size-4" />
             </button>
           </div>
         ) : (
-          <div className="mt-8 flex flex-col items-center py-6 text-center">
-            <div className="flex size-16 items-center justify-center rounded-full bg-success/10 text-success ring-1 ring-success/20"><Check className="size-7" /></div>
-            <h3 className="mt-5 text-lg font-semibold text-foreground">Vehicle updated</h3>
-            <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">Your changes have been saved successfully throughout your workspace.</p>
-            <button type="button" onClick={onClose} className="mt-6 h-11 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground">Done</button>
+          <div className="mt-4 flex flex-col items-center py-6 text-center">
+            <div className="flex size-16 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-400 ring-1 ring-emerald-400/20"><Check className="size-7" /></div>
+            <h3 className="mt-5 text-lg font-semibold text-slate-100">Vehicle updated</h3>
+            <p className="mt-2 max-w-xs text-sm leading-relaxed text-slate-400">Your changes have been saved successfully throughout your workspace.</p>
+            <button type="button" onClick={onClose} className="mt-6 h-11 w-full rounded-full bg-blue-600 text-sm font-semibold text-white hover:bg-blue-500">Done</button>
           </div>
         )}
-      </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -470,26 +489,23 @@ function AddVehicleWizard({ onClose, onSaved }: { onClose: () => void; onSaved: 
   }
 
   // Common input class
-  const inputCls = 'h-11 w-full rounded-xl border border-input bg-secondary/40 px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/10'
+  const inputCls = 'h-11 w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 transition-colors'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="add-wizard-title">
-      <button type="button" className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={onClose} aria-label="Close dialog" />
-      <div className="glass-strong relative flex w-full max-w-lg sm:max-w-2xl lg:max-w-3xl flex-col rounded-t-3xl shadow-2xl sm:rounded-3xl" style={{ maxHeight: 'min(92dvh, 740px)' }}>
-
+    <Dialog open={true} onClose={onClose} titleId="add-wizard-title" className="max-w-lg sm:max-w-2xl lg:max-w-3xl flex flex-col p-0 h-[min(92dvh,740px)] overflow-hidden">
         {/* ── Header ── */}
-        <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-800 bg-slate-900 px-5 py-4 shrink-0">
           {step > 0 ? (
-            <button type="button" onClick={goBack} className="flex size-9 items-center justify-center rounded-xl bg-secondary text-muted-foreground hover:text-foreground" aria-label="Back">
+            <button type="button" onClick={goBack} className="flex size-9 items-center justify-center rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-100 transition-colors" aria-label="Back">
               <ArrowLeft className="size-4" />
             </button>
           ) : (
             <div className="size-9" />
           )}
-          <h2 id="add-wizard-title" className="text-sm font-semibold text-foreground">
+          <h2 id="add-wizard-title" className="text-sm font-semibold text-slate-100">
             Step {step + 1} of {WIZARD_STEPS.length}
           </h2>
-          <button type="button" onClick={onClose} className="flex size-9 items-center justify-center rounded-xl bg-secondary text-muted-foreground hover:text-foreground" aria-label="Close">
+          <button type="button" onClick={onClose} className="flex size-9 items-center justify-center rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-100 transition-colors" aria-label="Close">
             <X className="size-4" />
           </button>
         </div>
@@ -750,13 +766,13 @@ function AddVehicleWizard({ onClose, onSaved }: { onClose: () => void; onSaved: 
         </div>
 
         {/* ── Footer with Continue / Save ── */}
-        <div className="border-t border-border px-5 py-4">
+        <div className="border-t border-slate-800 bg-slate-900 px-5 py-4 shrink-0">
           {step < WIZARD_STEPS.length - 1 ? (
             <button
               type="button"
               onClick={goNext}
               disabled={!canContinue}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-50"
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-blue-600 text-sm font-semibold text-white shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all hover:bg-blue-500 disabled:pointer-events-none disabled:opacity-50"
             >
               Continue
               <ChevronRight className="size-4" />
@@ -766,7 +782,7 @@ function AddVehicleWizard({ onClose, onSaved }: { onClose: () => void; onSaved: 
               <button
                 type="button"
                 onClick={goBack}
-                className="flex h-11 flex-1 items-center justify-center rounded-xl border border-border bg-secondary/40 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
+                className="flex h-11 flex-1 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-sm font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
               >
                 Back
               </button>
@@ -774,7 +790,7 @@ function AddVehicleWizard({ onClose, onSaved }: { onClose: () => void; onSaved: 
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="flex h-11 flex-[2] items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                className="flex h-11 flex-[2] items-center justify-center gap-2 rounded-full bg-blue-600 text-sm font-semibold text-white shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:bg-blue-500 transition-all disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save vehicle'}
                 <Sparkles className="size-4" />
@@ -782,8 +798,7 @@ function AddVehicleWizard({ onClose, onSaved }: { onClose: () => void; onSaved: 
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -848,45 +863,37 @@ function DeleteVehicleDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="delete-vehicle-title">
-      <button type="button" className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={onClose} aria-label="Close dialog" />
-      <div className="glass-strong relative w-full max-w-md rounded-t-3xl p-6 shadow-2xl sm:rounded-3xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-destructive/15 text-destructive"><Trash2 className="size-5" /></div>
-            <h2 id="delete-vehicle-title" className="text-xl font-semibold text-foreground">Delete vehicle</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Are you sure you want to delete {vehicle.make} {vehicle.model}?</p>
-          </div>
-          <button type="button" onClick={onClose} className="flex size-9 items-center justify-center rounded-xl bg-secondary text-muted-foreground hover:text-foreground" aria-label="Close">
-            <X className="size-4" />
+    <Dialog open={true} onClose={onClose} titleId="delete-vehicle-title">
+      <DialogHeader onClose={onClose}>
+        <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-rose-500/15 text-rose-500"><Trash2 className="size-5" /></div>
+        <DialogTitle id="delete-vehicle-title">Delete vehicle</DialogTitle>
+        <DialogDescription>Are you sure you want to delete {vehicle.make} {vehicle.model}?</DialogDescription>
+      </DialogHeader>
+
+      <div className="mt-6 flex flex-col gap-3">
+        <p className="text-sm text-slate-400 leading-relaxed">
+          This action will permanently remove <strong className="font-semibold text-slate-100">{vehicle.make} {vehicle.model} ({vehicle.plate})</strong> and all its associated tracking data from your garage. This action cannot be undone.
+        </p>
+
+        <DialogFooter>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={deleting}
+            className="flex-1 h-11 rounded-full border border-slate-700 bg-slate-800 text-sm font-semibold text-slate-300 transition-colors hover:bg-slate-700 hover:text-white disabled:opacity-50"
+          >
+            Cancel
           </button>
-        </div>
-
-        <div className="mt-6 flex flex-col gap-3">
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            This action will permanently remove <strong className="font-semibold text-foreground">{vehicle.make} {vehicle.model} ({vehicle.plate})</strong> and all its associated tracking data from your garage. This action cannot be undone.
-          </p>
-
-          <div className="mt-4 flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={deleting}
-              className="flex-1 h-11 rounded-xl bg-secondary text-sm font-semibold text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={deleting}
-              className="flex-1 h-11 rounded-xl bg-destructive text-sm font-semibold text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
-            >
-              {deleting ? "Deleting..." : "Delete"}
-            </button>
-          </div>
-        </div>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="flex-1 h-11 rounded-full bg-rose-600 text-sm font-semibold text-white transition-colors hover:bg-rose-500 disabled:opacity-50"
+          >
+            {deleting ? "Deleting..." : "Delete"}
+          </button>
+        </DialogFooter>
       </div>
-    </div>
+    </Dialog>
   )
 }
